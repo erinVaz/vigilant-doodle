@@ -1,0 +1,45 @@
+/*
+ *  HLS Matrix multiplication accelerator
+ *  TEST: Full unroll inner loops (COLS_LOOP and MULT_ACC_LOOP)
+ *  NOTE: This is also the design used for Lab 3 (as specified in the lab guide)
+ *
+ *  Updated by: Callum Stew
+ *  Adapted from work by: Eduardo Wachter
+ *  Date: 23/07/2024
+ */
+
+#include "matrix_mult.h"
+
+void array_mult (stream_data &in_a, data in_b[ROWS*COLS], stream_data &result)
+{
+    // Define the AXI interfaces
+	#pragma HLS INTERFACE s_axilite port=return bundle=CTRL
+	#pragma HLS INTERFACE s_axilite port=in_b bundle=DATA_IN_B
+	#pragma HLS INTERFACE axis port=in_a
+	#pragma HLS INTERFACE axis port=result
+
+	data i,j,k;
+	packet mult_acc;
+	packet in_a_store[ROWS*COLS];
+
+	for (i=0;i<ROWS*COLS;i++) {
+		in_a.read(in_a_store[i]);
+	}
+
+	ROWS_LOOP: for (i=0;i<ROWS;i++) {
+		COLS_LOOP: for (j=0;j<COLS;j++) {
+			#pragma HLS unroll
+			mult_acc.data=0;
+
+			MULT_ACC_LOOP: for (k=0;k<MULT_ACC;k++) {
+				#pragma HLS unroll
+				mult_acc.data+=in_a_store[i*ROWS+k].data*in_b[k*ROWS+j];
+				mult_acc.last=in_a_store[i*ROWS+k].last&(j==(COLS-1));
+				mult_acc.keep = in_a_store[i*ROWS+k].keep;
+				mult_acc.strb = in_a_store[i*ROWS+k].strb;
+			}
+
+			result.write(mult_acc);
+		}
+	}
+}
