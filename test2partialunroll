@@ -1,9 +1,3 @@
-/*
- * HLS Matrix multiplication accelerator
- * TEST: Combined optimisation
- * Pipeline on COLS_LOOP + partial unroll on MULT_ACC_LOOP
- */
-
 #include "matrix_mult.h"
 
 void array_mult(stream_data &in_a, data in_b[ROWS * COLS], stream_data &result)
@@ -17,7 +11,7 @@ void array_mult(stream_data &in_a, data in_b[ROWS * COLS], stream_data &result)
     packet mult_acc;
     packet in_a_store[ROWS * COLS];
 
-    // Read streamed matrix A into local storage
+    // Store streamed matrix A locally
     READ_A_LOOP: for (int i = 0; i < ROWS * COLS; i++) {
         in_a.read(in_a_store[i]);
     }
@@ -25,7 +19,6 @@ void array_mult(stream_data &in_a, data in_b[ROWS * COLS], stream_data &result)
     ROWS_LOOP: for (int i = 0; i < ROWS; i++) {
 
         COLS_LOOP: for (int j = 0; j < COLS; j++) {
-            #pragma HLS PIPELINE II=1
 
             mult_acc.data = 0;
             mult_acc.keep = in_a_store[i * COLS].keep;
