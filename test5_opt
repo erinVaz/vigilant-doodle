@@ -1,0 +1,48 @@
+/*
+ * HLS Matrix multiplication accelerator
+ * TEST: Combined optimisation
+ * Pipeline on COLS_LOOP + partial unroll on MULT_ACC_LOOP
+ */
+
+#include "matrix_mult.h"
+
+void array_mult(stream_data &in_a, data in_b[ROWS * COLS], stream_data &result)
+{
+    // AXI interfaces
+    #pragma HLS INTERFACE s_axilite port=return bundle=CTRL
+    #pragma HLS INTERFACE s_axilite port=in_b bundle=DATA_IN_B
+    #pragma HLS INTERFACE axis port=in_a
+    #pragma HLS INTERFACE axis port=result
+
+    packet mult_acc;
+    packet in_a_store[ROWS * COLS];
+
+    // Read streamed matrix A into local storage
+    READ_A_LOOP: for (int i = 0; i < ROWS * COLS; i++) {
+        in_a.read(in_a_store[i]);
+    }
+
+    ROWS_LOOP: for (int i = 0; i < ROWS; i++) {
+
+        COLS_LOOP: for (int j = 0; j < COLS; j++) {
+            #pragma HLS PIPELINE II=1
+
+            mult_acc.data = 0;
+            mult_acc.keep = in_a_store[i * COLS].keep;
+            mult_acc.strb = in_a_store[i * COLS].strb;
+            mult_acc.last = 0;
+
+            MULT_ACC_LOOP: for (int k = 0; k < COLS; k++) {
+                #pragma HLS UNROLL factor=2
+
+                mult_acc.data += in_a_store[i * COLS + k].data * in_b[k * COLS + j];
+
+                if (k == COLS - 1) {
+                    mult_acc.last = (i == ROWS - 1) && (j == COLS - 1);
+                }
+            }
+
+            result.write(mult_acc);
+        }
+    }
+}
